@@ -16,6 +16,8 @@ import {
   escapeMarkdown,
   isValidMeetUrl,
 } from "../utils.js";
+import { replyStatusCardByName } from "../status/card.js";
+import { isStaff } from "../rbac.js";
 import { MENU_CALLBACK, MENU_INTRO, mainMenuKeyboard } from "./keyboard.js";
 
 export async function showMainMenu(ctx: Context): Promise<void> {
@@ -36,12 +38,33 @@ export function registerMenuHandlers(bot: {
 }): void {
   bot.callbackQuery(MENU_CALLBACK.addStudent, onAddStudent);
   bot.callbackQuery(MENU_CALLBACK.sendReminder, onSendReminder);
+  bot.callbackQuery(MENU_CALLBACK.updateStatus, onUpdateStatus);
   bot.callbackQuery(MENU_CALLBACK.searchLink, onSearchLink);
   bot.callbackQuery(MENU_CALLBACK.savedLinks, onSavedLinks);
   bot.callbackQuery(MENU_CALLBACK.listStudents, onListStudents);
   bot.callbackQuery(MENU_CALLBACK.back, onBackToMenu);
 
   bot.on("message:text", onPendingText);
+}
+
+async function onUpdateStatus(ctx: Context): Promise<void> {
+  await ctx.answerCallbackQuery();
+  const chatId = ctx.chat?.id;
+  if (chatId === undefined) return;
+
+  if (!isStaff(ctx.from?.id)) {
+    await ctx.reply(
+      "Only the Teacher or TA can update statuses.\n" +
+        `Your Telegram user ID is: ${ctx.from?.id ?? "unknown"}\n` +
+        "Put that value in TEACHER_CHAT_ID or TA_CHAT_ID in .env, then restart the bot.",
+    );
+    return;
+  }
+
+  setPending(chatId, "awaiting_status_student");
+  await ctx.reply(
+    "Which student’s status do you want to update?\nSend their exact name (or `/cancel`).",
+  );
 }
 
 async function onListStudents(ctx: Context): Promise<void> {
@@ -143,12 +166,41 @@ async function onPendingText(ctx: Context): Promise<void> {
     case "awaiting_search_student":
       await handleSearchStudentName(ctx, chatId, text);
       break;
+    case "awaiting_status_student":
+      await handleStatusStudentName(ctx, chatId, text);
+      break;
     case "awaiting_add_name":
       await handleAddName(ctx, chatId, text);
       break;
     case "awaiting_add_meet_link":
       await handleAddMeetLink(ctx, chatId, text);
       break;
+  }
+}
+
+async function handleStatusStudentName(
+  ctx: Context,
+  chatId: number,
+  name: string,
+): Promise<void> {
+  clearPending(chatId);
+
+  try {
+    const ok = await replyStatusCardByName(ctx, name);
+    if (ok) {
+      await ctx.reply("Tap a status button below the card to update them.", {
+        reply_markup: mainMenuKeyboard(),
+      });
+    } else {
+      await ctx.reply("Try again from the menu.", {
+        reply_markup: mainMenuKeyboard(),
+      });
+    }
+  } catch (error) {
+    console.error("[menu] Update status failed:", error);
+    await ctx.reply("❌ Could not load student status.", {
+      reply_markup: mainMenuKeyboard(),
+    });
   }
 }
 

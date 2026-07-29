@@ -3,6 +3,7 @@ import { startCommand, menuCommand, helpCommand, cancelCommand } from "./start.j
 import { meetCommand } from "./meet.js";
 import { addStudentCommand } from "./addStudent.js";
 import { statusCommand } from "./status.js";
+import { setStatusCommand } from "./setStatus.js";
 import { registerMenuHandlers } from "../menu/handlers.js";
 import { registerStatusHandlers } from "../status/handlers.js";
 
@@ -14,6 +15,7 @@ export function registerCommands(bot: Bot): void {
   bot.command("meet", meetCommand);
   bot.command("addstudent", addStudentCommand);
   bot.command("status", statusCommand);
+  bot.command("setstatus", setStatusCommand);
 
   registerMenuHandlers(bot);
   registerStatusHandlers(bot);

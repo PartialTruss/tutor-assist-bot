@@ -1,6 +1,7 @@
 export type PendingAction =
   | "awaiting_reminder_student"
   | "awaiting_search_student"
+  | "awaiting_status_student"
   | "awaiting_add_name"
   | "awaiting_add_meet_link";
 

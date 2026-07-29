@@ -29,7 +29,7 @@ async function onStatusCallback(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
   if (!isStaff(userId)) {
     await ctx.answerCallbackQuery({
-      text: "You do not have permission to change statuses.",
+      text: `No permission. Your ID: ${userId ?? "?"} (must match TEACHER_CHAT_ID or TA_CHAT_ID)`,
       show_alert: true,
     });
     return;
