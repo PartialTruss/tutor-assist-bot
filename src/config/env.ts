@@ -15,6 +15,7 @@ function optionalEnv(name: string, fallback: string): string {
 export const env = {
   telegramBotToken: requireEnv("TELEGRAM_BOT_TOKEN"),
   teacherChatId: requireEnv("TEACHER_CHAT_ID"),
+  taChatId: requireEnv("TA_CHAT_ID"),
   senderName: optionalEnv("SENDER_NAME", "My Name"),
 
   appwrite: {

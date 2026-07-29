@@ -5,6 +5,7 @@ export const MENU_CALLBACK = {
   sendReminder: "menu:send_reminder",
   searchLink: "menu:search_link",
   savedLinks: "menu:saved_links",
+  listStudents: "menu:list_students",
   back: "menu:back",
 } as const;
 
@@ -16,11 +17,13 @@ export function mainMenuKeyboard(): InlineKeyboard {
     .row()
     .text("Search Link", MENU_CALLBACK.searchLink)
     .row()
-    .text("Saved Links", MENU_CALLBACK.savedLinks);
+    .text("Saved Links", MENU_CALLBACK.savedLinks)
+    .row()
+    .text("List Students", MENU_CALLBACK.listStudents);
 }
 
 export const MENU_INTRO = [
   "📋 *Main Menu*",
   "",
-  "Choose an action below, or use `/addstudent` / `/meet` for quick commands.",
+  "Choose an action below, or use `/addstudent` / `/meet` / `/status`.",
 ].join("\n");

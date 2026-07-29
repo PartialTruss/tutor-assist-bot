@@ -1,15 +1,33 @@
 import { ID, Query } from "node-appwrite";
 import { databases, dbIds } from "./appwrite.js";
-import type { Student, StudentUpdateInput } from "../types/student.js";
+import {
+  defaultTaskStatus,
+  isTaskStatus,
+  type Student,
+  type StudentUpdateInput,
+  type TaskStatus,
+} from "../types/student.js";
+
+function asBool(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  return Boolean(value);
+}
 
 function mapStudent(doc: Record<string, unknown>): Student {
   const chatId = doc.telegramChatId ? String(doc.telegramChatId).trim() : "";
+  const rawStatus = doc.taskStatus ? String(doc.taskStatus).trim() : "";
+
   return {
     $id: String(doc.$id),
     name: String(doc.name ?? ""),
     telegramChatId: chatId || undefined,
     meetLink: doc.meetLink ? String(doc.meetLink) : undefined,
     homeworkNote: doc.homeworkNote ? String(doc.homeworkNote) : undefined,
+    taskStatus: isTaskStatus(rawStatus) ? rawStatus : defaultTaskStatus(),
+    teacherApproved: asBool(doc.teacherApproved),
+    taApproved: asBool(doc.taApproved),
+    finalized: asBool(doc.finalized),
   };
 }
 
@@ -101,6 +119,27 @@ export async function updateStudent(
   return mapStudent(doc as unknown as Record<string, unknown>);
 }
 
+export async function setTaskStatus(
+  studentId: string,
+  taskStatus: TaskStatus,
+  approvals: { teacherApproved?: boolean; taApproved?: boolean },
+): Promise<Student> {
+  return updateStudent(studentId, {
+    taskStatus,
+    finalized: false,
+    ...approvals,
+  });
+}
+
+export async function finalizeStudent(studentId: string): Promise<Student> {
+  return updateStudent(studentId, {
+    finalized: true,
+    taskStatus: "✅",
+    teacherApproved: true,
+    taApproved: true,
+  });
+}
+
 /** Create a student document. Chat ID is optional. */
 export async function createStudent(input: {
   name: string;
@@ -108,7 +147,13 @@ export async function createStudent(input: {
   meetLink?: string;
   homeworkNote?: string;
 }): Promise<Student> {
-  const data: Record<string, string> = { name: input.name };
+  const data: Record<string, string | boolean> = {
+    name: input.name,
+    taskStatus: defaultTaskStatus(),
+    teacherApproved: false,
+    taApproved: false,
+    finalized: false,
+  };
 
   if (input.telegramChatId?.trim()) {
     data.telegramChatId = input.telegramChatId.trim();

@@ -5,6 +5,7 @@ import {
   listStudents,
 } from "../../db/students.js";
 import { sendStudentReminder } from "../../cron/studentReminders.js";
+import { replyStatusDashboard } from "../commands/status.js";
 import {
   clearPending,
   getDraft,
@@ -37,9 +38,15 @@ export function registerMenuHandlers(bot: {
   bot.callbackQuery(MENU_CALLBACK.sendReminder, onSendReminder);
   bot.callbackQuery(MENU_CALLBACK.searchLink, onSearchLink);
   bot.callbackQuery(MENU_CALLBACK.savedLinks, onSavedLinks);
+  bot.callbackQuery(MENU_CALLBACK.listStudents, onListStudents);
   bot.callbackQuery(MENU_CALLBACK.back, onBackToMenu);
 
   bot.on("message:text", onPendingText);
+}
+
+async function onListStudents(ctx: Context): Promise<void> {
+  await ctx.answerCallbackQuery({ text: "Loading students…" });
+  await replyStatusDashboard(ctx);
 }
 
 async function onAddStudent(ctx: Context): Promise<void> {

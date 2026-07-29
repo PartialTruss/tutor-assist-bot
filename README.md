@@ -75,7 +75,8 @@ Copy `.env.example` → `.env`. **Never commit `.env`.**
 | Variable | Required | Description |
 | --- | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | Yes | Token from BotFather |
-| `TEACHER_CHAT_ID` | Yes | Teacher’s numeric Telegram chat ID |
+| `TEACHER_CHAT_ID` | Yes | Teacher’s numeric Telegram user/chat ID (RBAC) |
+| `TA_CHAT_ID` | Yes | TA’s numeric Telegram user/chat ID (RBAC) |
 | `SENDER_NAME` | No | Name used in the teacher reminder (default: `My Name`) |
 | `APPWRITE_ENDPOINT` | Yes | e.g. `https://cloud.appwrite.io/v1` |
 | `APPWRITE_PROJECT_ID` | Yes | Appwrite project ID |
@@ -102,6 +103,10 @@ Create a collection (e.g. `students`) with these attributes:
 | `telegramChatId` | String | No | Needed only to DM homework reminders |
 | `meetLink` | String (URL) | No | Google Meet URL |
 | `homeworkNote` | String | No | Optional note appended to reminders |
+| `taskStatus` | String | No | One of `✅` `☑️` `🕒` `💎` (default `🕒`) |
+| `teacherApproved` | Boolean | No | Set when Teacher updates status |
+| `taApproved` | Boolean | No | Set when TA updates status |
+| `finalized` | Boolean | No | Dual-approval finalize completed |
 
 ### 2. Indexes
 
