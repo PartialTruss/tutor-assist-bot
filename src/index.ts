@@ -115,18 +115,36 @@ async function main(): Promise<void> {
     console.log(`[boot] Dummy web server running on port ${PORT} to satisfy Render.`);
   });
 
-  // --- 5. Start the Bot ---
+  // --- 5. Start the Bot (only ONE process may poll this token) ---
   console.log("[boot] Starting Telegram bot (long polling)…");
   console.log(`[boot] Sender name: ${env.senderName}`);
   console.log(`[boot] Teacher chat ID: ${env.teacherChatId}`);
   console.log(`[boot] My chat ID: ${env.myChatId}`);
   console.log(`[boot] TA chat ID: ${env.taChatId}`);
 
-  await bot.start({
-    onStart: (info) => {
-      console.log(`[boot] Bot @${info.username} is online and ready.`);
-    },
-  });
+  // Clear any webhook so getUpdates works; also helps after redeploys.
+  await bot.api.deleteWebhook({ drop_pending_updates: false });
+  console.log("[boot] Webhook cleared (using long polling).");
+
+  try {
+    await bot.start({
+      onStart: (info) => {
+        console.log(`[boot] Bot @${info.username} is online and ready.`);
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("409") || message.toLowerCase().includes("conflict")) {
+      console.error("");
+      console.error("[boot] Telegram 409 Conflict: another getUpdates is already running.");
+      console.error("[boot] Fix:");
+      console.error("  1. Stop local `npm run dev` if the bot is also on Render");
+      console.error("  2. On Render → Settings → set Instance count to 1");
+      console.error("  3. Redeploy / restart the Render service once");
+      console.error("");
+    }
+    throw error;
+  }
 }
 
 main().catch((error) => {
