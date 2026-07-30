@@ -101,11 +101,12 @@ async function handleApprove(
   role: "teacher" | "ta",
 ): Promise<void> {
   if (role !== target) {
+    const yourId = ctx.from?.id ?? "?";
     await ctx.answerCallbackQuery({
       text:
         target === "ta"
-          ? "Only the TA can approve the TA field."
-          : "Only the Teacher can approve the Teacher field.",
+          ? `Only the TA can approve TA. Your ID: ${yourId}. Set TA_CHAT_ID to that ID on Render, then use the TA Telegram account.`
+          : `Only the Teacher can approve Teacher. Your ID: ${yourId}.`,
       show_alert: true,
     });
     return;
