@@ -77,10 +77,15 @@ function statusLabel(student: Student): string {
 export function formatStudentInfo(student: Student): string {
   return [
     "ℹ️ Information:",
+    "\n",
     `👤 Student's Fullname: ${student.name}`,
+    "\n",
     `🎥 Google meet link: ${student.meetLink?.trim() || "—"}`,
+    "\n",
     `📌 Current status: ${statusLabel(student)}`,
+    "\n",
     `🧑‍🏫 TA: ${approvalLabel(student.taApproved)}`,
+    "\n",
     `👨‍🏫 Teacher: ${approvalLabel(student.teacherApproved)}`,
   ].join("\n");
 }
