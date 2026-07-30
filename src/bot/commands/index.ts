@@ -10,6 +10,7 @@ import { addStudentCommand } from "./addStudent.js";
 import { statusCommand } from "./status.js";
 import { setStatusCommand } from "./setStatus.js";
 import { whoamiCommand } from "./whoami.js";
+import { resetApprovalsCommand } from "./resetApprovals.js";
 import { registerMenuHandlers } from "../menu/handlers.js";
 import { registerStatusHandlers } from "../status/handlers.js";
 
@@ -23,6 +24,7 @@ export function registerCommands(bot: Bot): void {
   bot.command("status", statusCommand);
   bot.command("setstatus", setStatusCommand);
   bot.command("whoami", whoamiCommand);
+  bot.command("resetapprovals", resetApprovalsCommand);
 
   registerMenuHandlers(bot);
   registerStatusHandlers(bot);

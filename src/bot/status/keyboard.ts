@@ -83,6 +83,7 @@ function statusLabel(student: Student): string {
 export function formatStudentInfo(student: Student): string {
   return [
     "ℹ️ Information:",
+    "--------------------------------",
     `👤 Student's Fullname: ${student.name}`,
     "--------------------------------", 
     `🎥 Google meet link: ${student.meetLink?.trim() || "—"}`,

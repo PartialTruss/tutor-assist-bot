@@ -17,6 +17,22 @@ export function registerStatusHandlers(bot: Bot): void {
   bot.callbackQuery(/^st:(ok|ta|wait|gem|apta|apte|fin):.+/, onStatusCallback);
 }
 
+async function safeEditTaskMessage(ctx: Context, studentId: string, text: string): Promise<void> {
+  try {
+    await ctx.editMessageText(text, {
+      reply_markup: taskStatusKeyboard(studentId),
+      link_preview_options: { is_disabled: true },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Telegram throws if text + keyboard are unchanged.
+    if (message.includes("message is not modified")) {
+      return;
+    }
+    throw error;
+  }
+}
+
 async function onStatusCallback(ctx: Context): Promise<void> {
   const data = ctx.callbackQuery?.data;
   if (!data) return;
@@ -58,7 +74,7 @@ async function onStatusCallback(ctx: Context): Promise<void> {
   } catch (error) {
     console.error("[status] Callback failed:", error);
     const message = error instanceof Error ? error.message : "Update failed";
-    await ctx.answerCallbackQuery({ text: message, show_alert: true });
+    await ctx.answerCallbackQuery({ text: message.slice(0, 180), show_alert: true });
   }
 }
 
@@ -83,13 +99,13 @@ async function handleStatusChange(
     return;
   }
 
+  if (existing.taskStatus === nextStatus && !existing.finalized) {
+    await ctx.answerCallbackQuery({ text: `Already ${nextStatus}` });
+    return;
+  }
+
   const student = await setTaskStatus(studentId, nextStatus);
-
-  await ctx.editMessageText(buildTaskMessage(student), {
-    reply_markup: taskStatusKeyboard(student.$id),
-    link_preview_options: { is_disabled: true },
-  });
-
+  await safeEditTaskMessage(ctx, student.$id, buildTaskMessage(student));
   await ctx.answerCallbackQuery({ text: `Status → ${nextStatus}` });
 }
 
@@ -105,8 +121,8 @@ async function handleApprove(
     await ctx.answerCallbackQuery({
       text:
         target === "ta"
-          ? `Only the TA can approve TA. Your ID: ${yourId}. Set TA_CHAT_ID to that ID on Render, then use the TA Telegram account.`
-          : `Only the Teacher can approve Teacher. Your ID: ${yourId}.`,
+          ? `Only the TA can approve TA. Your ID: ${yourId}`
+          : `Only the Teacher can approve Teacher. Your ID: ${yourId}`,
       show_alert: true,
     });
     return;
@@ -121,13 +137,19 @@ async function handleApprove(
     return;
   }
 
+  const already =
+    role === "ta" ? existing.taApproved : existing.teacherApproved;
+
+  if (already) {
+    await ctx.answerCallbackQuery({
+      text: "Already approved.",
+      show_alert: true,
+    });
+    return;
+  }
+
   const student = await setOwnApproval(studentId, role);
-
-  await ctx.editMessageText(buildTaskMessage(student), {
-    reply_markup: taskStatusKeyboard(student.$id),
-    link_preview_options: { is_disabled: true },
-  });
-
+  await safeEditTaskMessage(ctx, student.$id, buildTaskMessage(student));
   await ctx.answerCallbackQuery({
     text: role === "ta" ? "TA approved ✅" : "Teacher approved ✅",
   });
@@ -151,12 +173,12 @@ async function handleFinalize(ctx: Context, studentId: string): Promise<void> {
     return;
   }
 
+  if (existing.finalized) {
+    await ctx.answerCallbackQuery({ text: "Already finalized.", show_alert: true });
+    return;
+  }
+
   const student = await finalizeStudent(studentId);
-
-  await ctx.editMessageText(buildTaskMessage(student), {
-    reply_markup: taskStatusKeyboard(student.$id),
-    link_preview_options: { is_disabled: true },
-  });
-
+  await safeEditTaskMessage(ctx, student.$id, buildTaskMessage(student));
   await ctx.answerCallbackQuery({ text: "Task finalized ✅" });
 }

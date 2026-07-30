@@ -8,10 +8,14 @@ import {
   type TaskStatus,
 } from "../types/student.js";
 
-function asBool(value: unknown): boolean {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") return value.toLowerCase() === "true";
-  return Boolean(value);
+/** Only explicit true counts as approved — everything else is N/A. */
+function asApproved(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value === "string" && value.trim().toLowerCase() === "true") {
+    return true;
+  }
+  if (value === 1 || value === "1") return true;
+  return false;
 }
 
 function mapStudent(doc: Record<string, unknown>): Student {
@@ -25,9 +29,9 @@ function mapStudent(doc: Record<string, unknown>): Student {
     meetLink: doc.meetLink ? String(doc.meetLink) : undefined,
     homeworkNote: doc.homeworkNote ? String(doc.homeworkNote) : undefined,
     taskStatus: isTaskStatus(rawStatus) ? rawStatus : defaultTaskStatus(),
-    teacherApproved: asBool(doc.teacherApproved),
-    taApproved: asBool(doc.taApproved),
-    finalized: asBool(doc.finalized),
+    teacherApproved: asApproved(doc.teacherApproved),
+    taApproved: asApproved(doc.taApproved),
+    finalized: asApproved(doc.finalized),
   };
 }
 
@@ -138,6 +142,15 @@ export async function setOwnApproval(
     return updateStudent(studentId, { teacherApproved: true });
   }
   return updateStudent(studentId, { taApproved: true });
+}
+
+/** Reset TA/Teacher approvals back to N/A (false). */
+export async function resetApprovals(studentId: string): Promise<Student> {
+  return updateStudent(studentId, {
+    teacherApproved: false,
+    taApproved: false,
+    finalized: false,
+  });
 }
 
 export async function finalizeStudent(studentId: string): Promise<Student> {
