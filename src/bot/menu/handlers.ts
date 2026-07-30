@@ -1,30 +1,37 @@
 import type { Context } from "grammy";
 import {
   createStudent,
+  deleteStudent,
+  findStudentById,
   findStudentByName,
   listStudents,
+  saveMeetLink,
+  searchStudents,
 } from "../../db/students.js";
-import { sendStudentReminder } from "../../cron/studentReminders.js";
-import { replyStatusDashboard } from "../commands/status.js";
 import {
   clearPending,
   getDraft,
   getPending,
   setPending,
 } from "../session.js";
+import { escapeMarkdown, isValidMeetUrl } from "../utils.js";
+import { replyStudentStatusCard } from "../status/card.js";
 import {
-  escapeMarkdown,
-  isValidMeetUrl,
-} from "../utils.js";
-import { replyStatusCardByName } from "../status/card.js";
+  formatStudentDetails,
+  formatStatusDashboard,
+} from "../status/keyboard.js";
 import { isStaff } from "../rbac.js";
-import { MENU_CALLBACK, MENU_INTRO, mainMenuKeyboard } from "./keyboard.js";
+import {
+  MENU_CALLBACK,
+  MENU_INTRO,
+  deleteConfirmKeyboard,
+  mainMenuKeyboard,
+  updateStudentActionsKeyboard,
+} from "./keyboard.js";
 
 export async function showMainMenu(ctx: Context): Promise<void> {
   const chatId = ctx.chat?.id;
-  if (chatId !== undefined) {
-    clearPending(chatId);
-  }
+  if (chatId !== undefined) clearPending(chatId);
 
   await ctx.reply(MENU_INTRO, {
     parse_mode: "Markdown",
@@ -33,43 +40,24 @@ export async function showMainMenu(ctx: Context): Promise<void> {
 }
 
 export function registerMenuHandlers(bot: {
-  callbackQuery: (trigger: string, handler: (ctx: Context) => unknown) => void;
+  callbackQuery: (
+    trigger: string | RegExp,
+    handler: (ctx: Context) => unknown,
+  ) => void;
   on: (filter: "message:text", handler: (ctx: Context) => unknown) => void;
 }): void {
   bot.callbackQuery(MENU_CALLBACK.addStudent, onAddStudent);
-  bot.callbackQuery(MENU_CALLBACK.sendReminder, onSendReminder);
-  bot.callbackQuery(MENU_CALLBACK.updateStatus, onUpdateStatus);
-  bot.callbackQuery(MENU_CALLBACK.searchLink, onSearchLink);
-  bot.callbackQuery(MENU_CALLBACK.savedLinks, onSavedLinks);
   bot.callbackQuery(MENU_CALLBACK.listStudents, onListStudents);
+  bot.callbackQuery(MENU_CALLBACK.searchStudents, onSearchStudents);
+  bot.callbackQuery(MENU_CALLBACK.updateStudent, onUpdateStudent);
+  bot.callbackQuery(MENU_CALLBACK.deleteStudent, onDeleteStudent);
   bot.callbackQuery(MENU_CALLBACK.back, onBackToMenu);
+  bot.callbackQuery(MENU_CALLBACK.deleteCancel, onDeleteCancel);
+  bot.callbackQuery(/^upd:status:.+/, onUpdateStatusChoice);
+  bot.callbackQuery(/^upd:meet:.+/, onUpdateMeetChoice);
+  bot.callbackQuery(/^del:yes:.+/, onDeleteConfirm);
 
   bot.on("message:text", onPendingText);
-}
-
-async function onUpdateStatus(ctx: Context): Promise<void> {
-  await ctx.answerCallbackQuery();
-  const chatId = ctx.chat?.id;
-  if (chatId === undefined) return;
-
-  if (!isStaff(ctx.from?.id)) {
-    await ctx.reply(
-      "Only the Teacher or TA can update statuses.\n" +
-        `Your Telegram user ID is: ${ctx.from?.id ?? "unknown"}\n` +
-        "Put that value in TEACHER_CHAT_ID or TA_CHAT_ID in .env, then restart the bot.",
-    );
-    return;
-  }
-
-  setPending(chatId, "awaiting_status_student");
-  await ctx.reply(
-    "Which student’s status do you want to update?\nSend their exact name (or `/cancel`).",
-  );
-}
-
-async function onListStudents(ctx: Context): Promise<void> {
-  await ctx.answerCallbackQuery({ text: "Loading students…" });
-  await replyStatusDashboard(ctx);
 }
 
 async function onAddStudent(ctx: Context): Promise<void> {
@@ -78,70 +66,54 @@ async function onAddStudent(ctx: Context): Promise<void> {
   if (chatId === undefined) return;
 
   setPending(chatId, "awaiting_add_name", {});
-  await ctx.reply(
-    "➕ *Add Student* — step 1/2\n\nSend the student's *name* (or `/cancel`).",
-    { parse_mode: "Markdown" },
-  );
+  await ctx.reply("➕ Send the student's *name* (or `/cancel`).", {
+    parse_mode: "Markdown",
+  });
 }
 
-async function onSendReminder(ctx: Context): Promise<void> {
-  await ctx.answerCallbackQuery();
-  const chatId = ctx.chat?.id;
-  if (chatId === undefined) return;
-
-  setPending(chatId, "awaiting_reminder_student");
-  await ctx.reply(
-    "Who should receive the reminder?\nSend the student's exact name (or `/cancel`).",
-  );
-}
-
-async function onSearchLink(ctx: Context): Promise<void> {
-  await ctx.answerCallbackQuery();
-  const chatId = ctx.chat?.id;
-  if (chatId === undefined) return;
-
-  setPending(chatId, "awaiting_search_student");
-  await ctx.reply(
-    "Which student’s Meet link do you need?\nSend the student's exact name (or `/cancel`).",
-  );
-}
-
-async function onSavedLinks(ctx: Context): Promise<void> {
-  await ctx.answerCallbackQuery({ text: "Loading saved links…" });
-
+async function onListStudents(ctx: Context): Promise<void> {
+  await ctx.answerCallbackQuery({ text: "Loading…" });
   try {
     const students = await listStudents();
-    const withLinks = students.filter((s) => s.meetLink?.trim());
-
-    if (withLinks.length === 0) {
-      await ctx.reply(
-        "No saved Meet links yet. Use *Add Student* or `/addstudent`.",
-        {
-          parse_mode: "Markdown",
-          reply_markup: mainMenuKeyboard(),
-        },
-      );
-      return;
-    }
-
-    const lines = [
-      `🔗 *Saved Meet links* (${withLinks.length})`,
-      "",
-      ...withLinks.map(
-        (s) =>
-          `• *${escapeMarkdown(s.name)}*\n  ${escapeMarkdown(s.meetLink!.trim())}`,
-      ),
-    ];
-
-    await ctx.reply(lines.join("\n"), {
-      parse_mode: "Markdown",
+    await ctx.reply(formatStatusDashboard(students), {
       link_preview_options: { is_disabled: true },
       reply_markup: mainMenuKeyboard(),
     });
   } catch (error) {
-    console.error("[menu] Saved links failed:", error);
-    await ctx.reply("❌ Could not load saved links. Check Appwrite config.");
+    console.error("[menu] List failed:", error);
+    await ctx.reply("❌ Could not load students.");
   }
+}
+
+async function onSearchStudents(ctx: Context): Promise<void> {
+  await ctx.answerCallbackQuery();
+  const chatId = ctx.chat?.id;
+  if (chatId === undefined) return;
+
+  setPending(chatId, "awaiting_search_query");
+  await ctx.reply("🔍 Send part of a student name to search (or `/cancel`).");
+}
+
+async function onUpdateStudent(ctx: Context): Promise<void> {
+  await ctx.answerCallbackQuery();
+  const chatId = ctx.chat?.id;
+  if (chatId === undefined) return;
+
+  setPending(chatId, "awaiting_update_student");
+  await ctx.reply(
+    "✏️ Which student do you want to update?\nSend their exact name (or `/cancel`).",
+  );
+}
+
+async function onDeleteStudent(ctx: Context): Promise<void> {
+  await ctx.answerCallbackQuery();
+  const chatId = ctx.chat?.id;
+  if (chatId === undefined) return;
+
+  setPending(chatId, "awaiting_delete_student");
+  await ctx.reply(
+    "🗑 Which student should be deleted?\nSend their exact name (or `/cancel`).",
+  );
 }
 
 async function onBackToMenu(ctx: Context): Promise<void> {
@@ -149,58 +121,112 @@ async function onBackToMenu(ctx: Context): Promise<void> {
   await showMainMenu(ctx);
 }
 
+async function onDeleteCancel(ctx: Context): Promise<void> {
+  await ctx.answerCallbackQuery({ text: "Cancelled" });
+  await showMainMenu(ctx);
+}
+
+async function onUpdateStatusChoice(ctx: Context): Promise<void> {
+  const data = ctx.callbackQuery?.data ?? "";
+  const studentId = data.slice("upd:status:".length);
+  await ctx.answerCallbackQuery();
+
+  if (!isStaff(ctx.from?.id)) {
+    await ctx.reply(
+      `Only staff can update status.\nYour ID: ${ctx.from?.id ?? "?"}`,
+    );
+    return;
+  }
+
+  const student = await findStudentById(studentId);
+  if (!student) {
+    await ctx.reply("Student not found.");
+    return;
+  }
+
+  await replyStudentStatusCard(ctx, student);
+  await ctx.reply("Tap a status button on the card above.", {
+    reply_markup: mainMenuKeyboard(),
+  });
+}
+
+async function onUpdateMeetChoice(ctx: Context): Promise<void> {
+  const data = ctx.callbackQuery?.data ?? "";
+  const studentId = data.slice("upd:meet:".length);
+  await ctx.answerCallbackQuery();
+
+  const chatId = ctx.chat?.id;
+  if (chatId === undefined) return;
+
+  const student = await findStudentById(studentId);
+  if (!student) {
+    await ctx.reply("Student not found.");
+    return;
+  }
+
+  setPending(chatId, "awaiting_update_meet", {
+    studentId: student.$id,
+    name: student.name,
+  });
+  await ctx.reply(
+    `Send the new Google Meet URL for *${escapeMarkdown(student.name)}* (or /cancel).`,
+    { parse_mode: "Markdown" },
+  );
+}
+
+async function onDeleteConfirm(ctx: Context): Promise<void> {
+  const data = ctx.callbackQuery?.data ?? "";
+  const studentId = data.slice("del:yes:".length);
+
+  try {
+    const student = await findStudentById(studentId);
+    if (!student) {
+      await ctx.answerCallbackQuery({
+        text: "Student already gone.",
+        show_alert: true,
+      });
+      return;
+    }
+
+    await deleteStudent(studentId);
+    await ctx.answerCallbackQuery({ text: "Deleted" });
+    await ctx.reply(`🗑 Deleted *${escapeMarkdown(student.name)}*.`, {
+      parse_mode: "Markdown",
+      reply_markup: mainMenuKeyboard(),
+    });
+  } catch (error) {
+    console.error("[menu] Delete failed:", error);
+    await ctx.answerCallbackQuery({ text: "Delete failed", show_alert: true });
+  }
+}
+
 async function onPendingText(ctx: Context): Promise<void> {
   const chatId = ctx.chat?.id;
   const text = ctx.message?.text?.trim();
-  if (chatId === undefined || !text) return;
-
-  if (text.startsWith("/")) return;
+  if (chatId === undefined || !text || text.startsWith("/")) return;
 
   const pending = getPending(chatId);
   if (!pending) return;
 
   switch (pending) {
-    case "awaiting_reminder_student":
-      await handleReminderStudentName(ctx, chatId, text);
-      break;
-    case "awaiting_search_student":
-      await handleSearchStudentName(ctx, chatId, text);
-      break;
-    case "awaiting_status_student":
-      await handleStatusStudentName(ctx, chatId, text);
-      break;
     case "awaiting_add_name":
       await handleAddName(ctx, chatId, text);
       break;
     case "awaiting_add_meet_link":
       await handleAddMeetLink(ctx, chatId, text);
       break;
-  }
-}
-
-async function handleStatusStudentName(
-  ctx: Context,
-  chatId: number,
-  name: string,
-): Promise<void> {
-  clearPending(chatId);
-
-  try {
-    const ok = await replyStatusCardByName(ctx, name);
-    if (ok) {
-      await ctx.reply("Tap a status button below the card to update them.", {
-        reply_markup: mainMenuKeyboard(),
-      });
-    } else {
-      await ctx.reply("Try again from the menu.", {
-        reply_markup: mainMenuKeyboard(),
-      });
-    }
-  } catch (error) {
-    console.error("[menu] Update status failed:", error);
-    await ctx.reply("❌ Could not load student status.", {
-      reply_markup: mainMenuKeyboard(),
-    });
+    case "awaiting_search_query":
+      await handleSearch(ctx, chatId, text);
+      break;
+    case "awaiting_update_student":
+      await handleUpdatePick(ctx, chatId, text);
+      break;
+    case "awaiting_update_meet":
+      await handleUpdateMeet(ctx, chatId, text);
+      break;
+    case "awaiting_delete_student":
+      await handleDeletePick(ctx, chatId, text);
+      break;
   }
 }
 
@@ -214,15 +240,15 @@ async function handleAddName(
     if (existing) {
       clearPending(chatId);
       await ctx.reply(
-        `A student named *${escapeMarkdown(name)}* already exists.\nUse \`/meet\` to update their link, or pick a different name.`,
+        `A student named *${escapeMarkdown(name)}* already exists.`,
         { parse_mode: "Markdown", reply_markup: mainMenuKeyboard() },
       );
       return;
     }
   } catch (error) {
-    console.error("[menu] Add-student name check failed:", error);
+    console.error("[menu] Add name check failed:", error);
     clearPending(chatId);
-    await ctx.reply("❌ Could not reach Appwrite. Check configuration.", {
+    await ctx.reply("❌ Could not reach Appwrite.", {
       reply_markup: mainMenuKeyboard(),
     });
     return;
@@ -230,13 +256,7 @@ async function handleAddName(
 
   setPending(chatId, "awaiting_add_meet_link", { name });
   await ctx.reply(
-    [
-      "➕ *Add Student* — step 2/2",
-      "",
-      `Name: *${escapeMarkdown(name)}*`,
-      "",
-      "Send their Google Meet URL.",
-    ].join("\n"),
+    `Name: *${escapeMarkdown(name)}*\n\nNow send their Google Meet URL.`,
     { parse_mode: "Markdown" },
   );
 }
@@ -249,15 +269,13 @@ async function handleAddMeetLink(
   const draft = getDraft(chatId);
   if (!draft?.name) {
     clearPending(chatId);
-    await ctx.reply("Session expired. Start again from the menu.", {
-      reply_markup: mainMenuKeyboard(),
-    });
+    await ctx.reply("Session expired.", { reply_markup: mainMenuKeyboard() });
     return;
   }
 
   if (!isValidMeetUrl(meetLink)) {
     await ctx.reply(
-      "Invalid Google Meet URL. Example:\n`https://meet.google.com/abc-defg-hij`\n\nTry again or `/cancel`.",
+      "Invalid Meet URL. Example: `https://meet.google.com/abc-defg-hij`",
       { parse_mode: "Markdown" },
     );
     return;
@@ -270,14 +288,8 @@ async function handleAddMeetLink(
       name: draft.name,
       meetLink: meetLink.trim(),
     });
-
     await ctx.reply(
-      [
-        "✅ Student added.",
-        "",
-        `*Name:* ${escapeMarkdown(student.name)}`,
-        `*Meet:* ${escapeMarkdown(student.meetLink ?? meetLink.trim())}`,
-      ].join("\n"),
+      `✅ Added *${escapeMarkdown(student.name)}*\nMeet: ${escapeMarkdown(student.meetLink ?? "")}`,
       {
         parse_mode: "Markdown",
         link_preview_options: { is_disabled: true },
@@ -286,14 +298,41 @@ async function handleAddMeetLink(
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[menu] Add student failed:", error);
+    console.error("[menu] Add failed:", error);
     await ctx.reply(`❌ Could not add student.\n${message}`, {
       reply_markup: mainMenuKeyboard(),
     });
   }
 }
 
-async function handleReminderStudentName(
+async function handleSearch(
+  ctx: Context,
+  chatId: number,
+  query: string,
+): Promise<void> {
+  clearPending(chatId);
+
+  try {
+    const matches = await searchStudents(query);
+    if (matches.length === 0) {
+      await ctx.reply(`No students matching "${query}".`, {
+        reply_markup: mainMenuKeyboard(),
+      });
+      return;
+    }
+
+    const body = matches.map(formatStudentDetails).join("\n\n");
+    await ctx.reply(`🔍 Results (${matches.length})\n\n${body}`, {
+      link_preview_options: { is_disabled: true },
+      reply_markup: mainMenuKeyboard(),
+    });
+  } catch (error) {
+    console.error("[menu] Search failed:", error);
+    await ctx.reply("❌ Search failed.", { reply_markup: mainMenuKeyboard() });
+  }
+}
+
+async function handleUpdatePick(
   ctx: Context,
   chatId: number,
   name: string,
@@ -303,58 +342,54 @@ async function handleReminderStudentName(
   try {
     const student = await findStudentByName(name);
     if (!student) {
-      await ctx.reply(
-        `No student named "${name}" found. Try again from the menu.`,
-        { reply_markup: mainMenuKeyboard() },
-      );
+      await ctx.reply(`No student named "${name}".`, {
+        reply_markup: mainMenuKeyboard(),
+      });
       return;
     }
 
-    await sendStudentReminder(ctx.api, student);
-    await ctx.reply(`✅ Reminder sent to *${escapeMarkdown(student.name)}*.`, {
-      parse_mode: "Markdown",
-      reply_markup: mainMenuKeyboard(),
-    });
+    await ctx.reply(
+      `${formatStudentDetails(student)}\n\nWhat do you want to update?`,
+      {
+        link_preview_options: { is_disabled: true },
+        reply_markup: updateStudentActionsKeyboard(student.$id),
+      },
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[menu] Manual reminder failed:", error);
-    await ctx.reply(`❌ Failed to send reminder.\n${message}`, {
+    console.error("[menu] Update pick failed:", error);
+    await ctx.reply("❌ Could not load student.", {
       reply_markup: mainMenuKeyboard(),
     });
   }
 }
 
-async function handleSearchStudentName(
+async function handleUpdateMeet(
   ctx: Context,
   chatId: number,
-  name: string,
+  meetLink: string,
 ): Promise<void> {
+  const draft = getDraft(chatId);
+  if (!draft?.studentId && !draft?.name) {
+    clearPending(chatId);
+    await ctx.reply("Session expired.", { reply_markup: mainMenuKeyboard() });
+    return;
+  }
+
+  if (!isValidMeetUrl(meetLink)) {
+    await ctx.reply(
+      "Invalid Meet URL. Example: `https://meet.google.com/abc-defg-hij`",
+      { parse_mode: "Markdown" },
+    );
+    return;
+  }
+
   clearPending(chatId);
 
   try {
-    const student = await findStudentByName(name);
-    if (!student) {
-      await ctx.reply(
-        `No student named "${name}" found. Try again from the menu.`,
-        { reply_markup: mainMenuKeyboard() },
-      );
-      return;
-    }
-
-    if (!student.meetLink?.trim()) {
-      await ctx.reply(
-        `*${escapeMarkdown(student.name)}* has no Meet link saved yet.\nUse \`/meet ${escapeMarkdown(student.name)} <url>\` to add one.`,
-        { parse_mode: "Markdown", reply_markup: mainMenuKeyboard() },
-      );
-      return;
-    }
-
+    const ref = draft.name ?? draft.studentId!;
+    const student = await saveMeetLink(ref, meetLink.trim());
     await ctx.reply(
-      [
-        `🎥 Meet link for *${escapeMarkdown(student.name)}*`,
-        "",
-        escapeMarkdown(student.meetLink.trim()),
-      ].join("\n"),
+      `✅ Meet link updated for *${escapeMarkdown(student.name)}*\n${escapeMarkdown(meetLink.trim())}`,
       {
         parse_mode: "Markdown",
         link_preview_options: { is_disabled: true },
@@ -362,8 +397,38 @@ async function handleSearchStudentName(
       },
     );
   } catch (error) {
-    console.error("[menu] Search link failed:", error);
-    await ctx.reply("❌ Could not search Appwrite. Check configuration.", {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[menu] Meet update failed:", error);
+    await ctx.reply(`❌ ${message}`, { reply_markup: mainMenuKeyboard() });
+  }
+}
+
+async function handleDeletePick(
+  ctx: Context,
+  chatId: number,
+  name: string,
+): Promise<void> {
+  clearPending(chatId);
+
+  try {
+    const student = await findStudentByName(name);
+    if (!student) {
+      await ctx.reply(`No student named "${name}".`, {
+        reply_markup: mainMenuKeyboard(),
+      });
+      return;
+    }
+
+    await ctx.reply(
+      `Delete *${escapeMarkdown(student.name)}*?\nThis cannot be undone.`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: deleteConfirmKeyboard(student.$id),
+      },
+    );
+  } catch (error) {
+    console.error("[menu] Delete pick failed:", error);
+    await ctx.reply("❌ Could not load student.", {
       reply_markup: mainMenuKeyboard(),
     });
   }

@@ -90,15 +90,40 @@ export function buildTaskMessage(student: Student): string {
 
 export function formatStudentStatusLine(student: Student): string {
   const meet = student.meetLink?.trim() || "—";
-  return `• ${student.name} - ${meet} - ${student.taskStatus}`;
+  const mark = student.finalized ? `${student.taskStatus} (done)` : student.taskStatus;
+  return `• ${student.name} - ${meet} - ${mark}`;
 }
 
 export function formatStatusDashboard(students: Student[]): string {
   if (students.length === 0) {
-    return "No students found in Appwrite.";
+    return "No students found.";
   }
 
-  return ["📊 Student Status", "", ...students.map(formatStudentStatusLine)].join(
-    "\n",
-  );
+  return [
+    `📋 Students (${students.length})`,
+    "",
+    ...students.map(formatStudentStatusLine),
+  ].join("\n");
+}
+
+export function formatStudentDetails(student: Student): string {
+  return [
+    `👤 ${student.name}`,
+    `Status: ${student.taskStatus}${student.finalized ? " (finalized)" : ""}`,
+    `Meet: ${student.meetLink?.trim() || "—"}`,
+    `Teacher OK: ${student.teacherApproved ? "yes" : "no"} · TA OK: ${student.taApproved ? "yes" : "no"}`,
+  ].join("\n");
+}
+
+export function formatRemainingTasksDigest(students: Student[]): string {
+  const open = students.filter((s) => !s.finalized);
+  if (open.length === 0) {
+    return "All student tasks are finalized. ✅";
+  }
+
+  return [
+    `Remaining tasks (${open.length}):`,
+    "",
+    ...open.map(formatStudentStatusLine),
+  ].join("\n");
 }

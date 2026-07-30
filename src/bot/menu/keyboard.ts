@@ -2,31 +2,47 @@ import { InlineKeyboard } from "grammy";
 
 export const MENU_CALLBACK = {
   addStudent: "menu:add_student",
-  sendReminder: "menu:send_reminder",
-  searchLink: "menu:search_link",
-  savedLinks: "menu:saved_links",
   listStudents: "menu:list_students",
-  updateStatus: "menu:update_status",
+  searchStudents: "menu:search_students",
+  updateStudent: "menu:update_student",
+  deleteStudent: "menu:delete_student",
+  updateStatus: "upd:status",
+  updateMeet: "upd:meet",
+  deleteConfirm: "del:yes",
+  deleteCancel: "del:no",
   back: "menu:back",
 } as const;
 
 export function mainMenuKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("Add Student", MENU_CALLBACK.addStudent)
+    .text("Add a student", MENU_CALLBACK.addStudent)
     .row()
-    .text("Send Reminder", MENU_CALLBACK.sendReminder)
+    .text("List of all students", MENU_CALLBACK.listStudents)
     .row()
-    .text("Update Status", MENU_CALLBACK.updateStatus)
+    .text("Search for students", MENU_CALLBACK.searchStudents)
     .row()
-    .text("Search Link", MENU_CALLBACK.searchLink)
+    .text("Update a student", MENU_CALLBACK.updateStudent)
     .row()
-    .text("Saved Links", MENU_CALLBACK.savedLinks)
+    .text("Delete a student", MENU_CALLBACK.deleteStudent);
+}
+
+export function updateStudentActionsKeyboard(studentId: string): InlineKeyboard {
+  return new InlineKeyboard()
+    .text("Update status", `${MENU_CALLBACK.updateStatus}:${studentId}`)
     .row()
-    .text("List Students", MENU_CALLBACK.listStudents);
+    .text("Update Meet link", `${MENU_CALLBACK.updateMeet}:${studentId}`)
+    .row()
+    .text("« Main menu", MENU_CALLBACK.back);
+}
+
+export function deleteConfirmKeyboard(studentId: string): InlineKeyboard {
+  return new InlineKeyboard()
+    .text("Yes, delete", `${MENU_CALLBACK.deleteConfirm}:${studentId}`)
+    .text("Cancel", MENU_CALLBACK.deleteCancel);
 }
 
 export const MENU_INTRO = [
-  "📋 *Main Menu*",
+  "📋 *Tutor Assist*",
   "",
-  "Choose an action, or try `/setstatus Alice` to update one student.",
+  "Choose an action:",
 ].join("\n");

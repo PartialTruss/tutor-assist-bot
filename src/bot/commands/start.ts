@@ -12,10 +12,8 @@ export async function menuCommand(ctx: CommandContext<Context>): Promise<void> {
 
 export async function cancelCommand(ctx: CommandContext<Context>): Promise<void> {
   const chatId = ctx.chat?.id;
-  if (chatId !== undefined) {
-    clearPending(chatId);
-  }
-  await ctx.reply("Cancelled. Open `/menu` whenever you’re ready.", {
+  if (chatId !== undefined) clearPending(chatId);
+  await ctx.reply("Cancelled. Open `/menu` when ready.", {
     parse_mode: "Markdown",
   });
 }
@@ -23,30 +21,25 @@ export async function cancelCommand(ctx: CommandContext<Context>): Promise<void>
 export async function helpCommand(ctx: CommandContext<Context>): Promise<void> {
   await ctx.reply(
     [
-      "👋 *Telegram Reminder Bot*",
+      "👋 *Tutor Assist Bot*",
       "",
-      "*Menu*",
-      "`/start` or `/menu` — Open the interactive menu",
-      "",
-      "*Menu buttons*",
-      "• *Add Student* — Create a student with Meet link",
-      "• *Send Reminder* — Manually remind a student",
-      "• *Update Status* — Open a student’s status buttons",
-      "• *Search Link* — Look up a student’s Meet link",
-      "• *Saved Links* — List all saved Meet links",
-      "• *List Students* — Status dashboard",
+      "*Menu* (`/start` or `/menu`)",
+      "• Add a student",
+      "• List of all students",
+      "• Search for students",
+      "• Update a student (status or Meet link)",
+      "• Delete a student",
       "",
       "*Commands*",
-      "`/addstudent <name> <url>` — Create student + Meet link",
-      "`/meet <student> <url>` — Update an existing student’s Meet link",
-      "`/status` — List students, Meet links, and task status",
-      "`/setstatus <name>` — Open status buttons for one student",
-      "`/cancel` — Cancel a pending prompt",
-      "`/help` — Show this message",
+      "`/addstudent <name> <url>`",
+      "`/meet <name> <url>` — update Meet link",
+      "`/setstatus <name>` — status buttons",
+      "`/status` — list everyone",
+      "`/cancel` — abort a prompt",
       "",
-      "*Task statuses* (Teacher / TA only)",
-      "✅ Student done · ☑️ TA done · 🕒 Needs TA · 💎 Needs Teacher",
-      "Finalize requires both Teacher and TA approval.",
+      "*Scheduled*",
+      "• 14:00 → you: check students’ homework",
+      "• 21:00 → teacher: OneNote + remaining tasks",
     ].join("\n"),
     { parse_mode: "Markdown" },
   );

@@ -1,26 +1,27 @@
 export type PendingAction =
-  | "awaiting_reminder_student"
-  | "awaiting_search_student"
-  | "awaiting_status_student"
   | "awaiting_add_name"
-  | "awaiting_add_meet_link";
+  | "awaiting_add_meet_link"
+  | "awaiting_search_query"
+  | "awaiting_update_student"
+  | "awaiting_update_meet"
+  | "awaiting_delete_student";
 
-export interface AddStudentDraft {
+export interface StudentDraft {
   name?: string;
+  studentId?: string;
 }
 
 interface SessionState {
   action: PendingAction;
-  draft?: AddStudentDraft;
+  draft?: StudentDraft;
 }
 
-/** In-memory per-user prompt state (chatId → session). */
 const sessions = new Map<number, SessionState>();
 
 export function setPending(
   chatId: number,
   action: PendingAction,
-  draft?: AddStudentDraft,
+  draft?: StudentDraft,
 ): void {
   sessions.set(chatId, { action, draft });
 }
@@ -29,7 +30,7 @@ export function getPending(chatId: number): PendingAction | undefined {
   return sessions.get(chatId)?.action;
 }
 
-export function getDraft(chatId: number): AddStudentDraft | undefined {
+export function getDraft(chatId: number): StudentDraft | undefined {
   return sessions.get(chatId)?.draft;
 }
 

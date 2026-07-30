@@ -14,7 +14,11 @@ function optionalEnv(name: string, fallback: string): string {
 
 export const env = {
   telegramBotToken: requireEnv("TELEGRAM_BOT_TOKEN"),
+  /** Teacher — receives 21:00 OneNote + remaining-tasks summary */
   teacherChatId: requireEnv("TEACHER_CHAT_ID"),
+  /** You — receives 14:00 “check students’ homework” reminder */
+  myChatId: requireEnv("MY_CHAT_ID"),
+  /** TA — can change task statuses (RBAC) */
   taChatId: requireEnv("TA_CHAT_ID"),
   senderName: optionalEnv("SENDER_NAME", "My Name"),
 
@@ -27,8 +31,10 @@ export const env = {
   },
 
   cron: {
-    studentReminder: optionalEnv("STUDENT_REMINDER_CRON", "0 12 * * *"),
-    teacherReminder: optionalEnv("TEACHER_REMINDER_CRON", "0 9 * * *"),
+    /** Reminder to you: check students’ homework */
+    homeworkCheck: optionalEnv("HOMEWORK_CHECK_CRON", "0 14 * * *"),
+    /** Reminder to teacher: OneNote + remaining statuses */
+    teacherDigest: optionalEnv("TEACHER_DIGEST_CRON", "0 21 * * *"),
     timezone: optionalEnv("TZ", "Asia/Tehran"),
   },
 } as const;

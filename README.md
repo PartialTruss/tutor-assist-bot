@@ -1,6 +1,6 @@
-# Telegram Class Reminder Bot
+# Tutor Assist Bot
 
-A TypeScript Telegram bot for tutors and teachers: store Google Meet links per student, send homework reminders on a schedule, and ping a teacher about OneNote tasks — backed by Appwrite.
+TypeScript Telegram bot for managing tutoring students: Meet links, task statuses, and scheduled reminders — backed by Appwrite.
 
 Built with [grammY](https://grammy.dev/), [Appwrite](https://appwrite.io/), and [node-cron](https://www.npmjs.com/package/node-cron).
 
@@ -8,13 +8,22 @@ Built with [grammY](https://grammy.dev/), [Appwrite](https://appwrite.io/), and 
 
 ## Features
 
-- **Interactive menu** (`/start` / `/menu`) with inline buttons  
-  - Add Student · Send Reminder · Search Link · Saved Links  
-- **Add students** with name + Meet link (chat ID optional)  
-- **Update Meet links** for existing students (`/meet`)  
-- **Daily student homework reminders** (default 12:00, timezone-aware)  
-- **Daily teacher OneNote reminder** to a fixed Telegram chat ID  
-- Fully typed Node.js / TypeScript codebase with a modular layout  
+### Menu (`/start` / `/menu`)
+
+1. **Add a student** — name + Google Meet link  
+2. **List of all students** — name, Meet link, status emoji  
+3. **Search for students** — partial name match  
+4. **Update a student** — change **status** or **Meet link**  
+5. **Delete a student** — with confirmation  
+
+### Scheduled reminders
+
+| Time (default) | Who | Message |
+| --- | --- | --- |
+| **14:00** | You (`MY_CHAT_ID`) | Check students’ homework |
+| **21:00** | Teacher (`TEACHER_CHAT_ID`) | OneNote tasks + list of **remaining** (not finalized) student statuses |
+
+Timezone defaults to `Asia/Tehran` (`TZ`).
 
 ---
 
@@ -29,15 +38,6 @@ Built with [grammY](https://grammy.dev/), [Appwrite](https://appwrite.io/), and 
 
 ---
 
-## Prerequisites
-
-1. **Node.js** 18 or newer  
-2. A **Telegram bot token** from [@BotFather](https://t.me/BotFather)  
-3. An **Appwrite** project (Cloud or self-hosted) with a database + `students` collection  
-4. Network access to `api.telegram.org` (use a VPN/proxy if Telegram is blocked in your region)
-
----
-
 ## Quick start
 
 ```bash
@@ -47,155 +47,77 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` with your credentials (see [Environment variables](#environment-variables)), then:
+Fill in `.env`, then:
 
 ```bash
-# Development (auto-reload)
-npm run dev
-
-# Production
-npm run build
-npm start
+npm run dev          # development
+npm run build && npm start   # production
 ```
 
-When the bot is online you should see:
-
-```text
-[boot] Bot @YourBotUsername is online.
-```
-
-Open Telegram, message your bot, and send `/start`.
+Open Telegram → message the bot → `/start`.
 
 ---
 
 ## Environment variables
 
-Copy `.env.example` → `.env`. **Never commit `.env`.**
+**Never commit `.env`.**
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `TELEGRAM_BOT_TOKEN` | Yes | Token from BotFather |
-| `TEACHER_CHAT_ID` | Yes | Teacher’s numeric Telegram user/chat ID (RBAC) |
-| `TA_CHAT_ID` | Yes | TA’s numeric Telegram user/chat ID (RBAC) |
-| `SENDER_NAME` | No | Name used in the teacher reminder (default: `My Name`) |
+| `TELEGRAM_BOT_TOKEN` | Yes | From BotFather |
+| `TEACHER_CHAT_ID` | Yes | Teacher Telegram user ID (21:00 digest + status RBAC) |
+| `MY_CHAT_ID` | Yes | Your Telegram user ID (14:00 homework reminder) |
+| `TA_CHAT_ID` | Yes | TA Telegram user ID (status RBAC) |
+| `SENDER_NAME` | No | Name shown in reminders |
 | `APPWRITE_ENDPOINT` | Yes | e.g. `https://cloud.appwrite.io/v1` |
-| `APPWRITE_PROJECT_ID` | Yes | Appwrite project ID |
-| `APPWRITE_API_KEY` | Yes | Server API key with Databases read/write |
+| `APPWRITE_PROJECT_ID` | Yes | Project ID |
+| `APPWRITE_API_KEY` | Yes | Server key with Databases read/write |
 | `APPWRITE_DATABASE_ID` | Yes | Database ID |
-| `APPWRITE_STUDENTS_COLLECTION_ID` | Yes | Collection ID (e.g. `students`) |
-| `STUDENT_REMINDER_CRON` | No | Default `0 12 * * *` (12:00 daily) |
-| `TEACHER_REMINDER_CRON` | No | Default `0 9 * * *` (09:00 daily) |
-| `TZ` | No | IANA timezone (default `Asia/Tehran`) |
-
-Cron expressions use standard [node-cron](https://www.npmjs.com/package/node-cron) / crontab syntax.
+| `APPWRITE_STUDENTS_COLLECTION_ID` | Yes | e.g. `students` |
+| `HOMEWORK_CHECK_CRON` | No | Default `0 14 * * *` |
+| `TEACHER_DIGEST_CRON` | No | Default `0 21 * * *` |
+| `TZ` | No | Default `Asia/Tehran` |
 
 ---
 
-## Appwrite setup
+## Appwrite `students` attributes
 
-### 1. Create a database and collection
+| Attribute | Type | Required |
+| --- | --- | --- |
+| `name` | String | Yes |
+| `telegramChatId` | String | No |
+| `meetLink` | String (URL) | No |
+| `homeworkNote` | String | No |
+| `taskStatus` | String | No (`✅` `☑️` `🕒` `💎`) |
+| `teacherApproved` | Boolean | No |
+| `taApproved` | Boolean | No |
+| `finalized` | Boolean | No |
 
-Create a collection (e.g. `students`) with these attributes:
-
-| Attribute | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `name` | String | Yes | Used for lookups (`/meet`, Search Link, etc.) |
-| `telegramChatId` | String | No | Needed only to DM homework reminders |
-| `meetLink` | String (URL) | No | Google Meet URL |
-| `homeworkNote` | String | No | Optional note appended to reminders |
-| `taskStatus` | String | No | One of `✅` `☑️` `🕒` `💎` (default `🕒`) |
-| `teacherApproved` | Boolean | No | Set when Teacher updates status |
-| `taApproved` | Boolean | No | Set when TA updates status |
-| `finalized` | Boolean | No | Dual-approval finalize completed |
-
-### 2. Indexes
-
-Add an **equality** index on `name` so name lookups are reliable.
-
-### 3. API key permissions
-
-Create a server API key with at least:
-
-- `databases.read`
-- `databases.write`
+Index: equality on `name`.
 
 ---
 
-## Bot usage
+## Status buttons (Teacher / TA / you)
 
-### Menu buttons
+On a student’s task card:
 
-| Button | What it does |
+- ✅ Student done · ☑️ TA done · 🕒 Needs TA · 💎 Needs Teacher  
+- **Finalize** — only after both Teacher and TA approvals  
+
+Open a card via **Update a student → Update status**, or `/setstatus Alice`.
+
+---
+
+## Useful commands
+
+| Command | Action |
 | --- | --- |
-| **Add Student** | Guided flow: name → Meet URL |
-| **Send Reminder** | Ask for a student name, then DM them a homework reminder |
-| **Search Link** | Look up one student’s Meet link by name |
-| **Saved Links** | List every student who has a Meet link saved |
-
-### Commands
-
-| Command | Description |
-| --- | --- |
-| `/start` · `/menu` | Open the interactive menu |
-| `/help` | Show help text |
-| `/addstudent <name> <meet-url>` | Create a student + Meet link |
-| `/meet <student> <meet-url>` | Update Meet link (by name or document ID) |
-| `/cancel` | Abort a pending prompt |
-
-**Examples**
-
-```text
-/addstudent Alice https://meet.google.com/abc-defg-hij
-/addstudent Jane Doe https://meet.google.com/abc-defg-hij
-/meet Alice https://meet.google.com/xyz-uvwx-rst
-```
-
-### Scheduled messages
-
-- **Students** (default 12:00): homework reminder; includes Meet link / homework note when set. Students without `telegramChatId` are skipped.  
-- **Teacher** (default 09:00):
-
-  ```text
-  Reminder from {SENDER_NAME}: Please check your tasks on OneNote.
-  ```
-
-> To receive Telegram DMs, a student must have opened the bot at least once **and** have their chat ID stored in Appwrite.
-
----
-
-## Project structure
-
-```text
-telegram-bot/
-├── src/
-│   ├── index.ts                 # Entry: Telegram preflight + bot + cron
-│   ├── config/
-│   │   └── env.ts               # Typed env loading / validation
-│   ├── db/
-│   │   ├── appwrite.ts          # Appwrite client
-│   │   └── students.ts          # Student collection helpers
-│   ├── bot/
-│   │   ├── bot.ts               # grammY bot factory
-│   │   ├── session.ts           # In-memory prompt state
-│   │   ├── utils.ts             # Shared validators / escaping
-│   │   ├── menu/
-│   │   │   ├── keyboard.ts      # Inline keyboard
-│   │   │   └── handlers.ts      # Callback + guided flows
-│   │   └── commands/
-│   │       ├── index.ts
-│   │       ├── start.ts         # /start /menu /help /cancel
-│   │       ├── meet.ts          # /meet
-│   │       └── addStudent.ts    # /addstudent
-│   ├── cron/
-│   │   ├── index.ts             # Job registration
-│   │   ├── studentReminders.ts
-│   │   └── teacherReminder.ts
-│   └── types/
-│       └── student.ts
-├── .env.example
-├── package.json
-└── tsconfig.json
-```
+| `/menu` | Main menu |
+| `/addstudent <name> <url>` | Quick add |
+| `/meet <name> <url>` | Update Meet link |
+| `/setstatus <name>` | Status keyboard |
+| `/status` | List everyone |
+| `/cancel` | Abort a prompt |
 
 ---
 
@@ -203,41 +125,13 @@ telegram-bot/
 
 | Script | Description |
 | --- | --- |
-| `npm run dev` | Run with `tsx watch` (reload on change) |
-| `npm run build` | Compile TypeScript → `dist/` |
-| `npm start` | Run compiled `dist/index.js` |
-| `npm run typecheck` | Type-check without emitting |
-
----
-
-## Troubleshooting
-
-### Bot hangs / never prints “online”
-
-Your machine likely cannot reach `api.telegram.org` (timeout). Connect a VPN (or HTTP proxy), then restart `npm run dev`. The boot check will fail fast with a clear message if Telegram is unreachable.
-
-### “Student not found”
-
-Names are matched **exactly** as stored in Appwrite (case-sensitive). Use the exact `name` attribute, or the document ID with `/meet`.
-
-### Reminders not arriving
-
-1. Student has a valid `telegramChatId`  
-2. They have started a chat with the bot  
-3. Cron timezone (`TZ`) matches your expectation  
-4. The process is still running at the scheduled time  
-
----
-
-## Security
-
-- Keep secrets in `.env` only — it is gitignored.  
-- Use `.env.example` with **placeholders**, never real tokens.  
-- If a token or API key was ever committed or shared, **rotate it** in BotFather / Appwrite immediately.  
-- Scope the Appwrite API key to the minimum permissions required.
+| `npm run dev` | `tsx watch` |
+| `npm run build` | Compile to `dist/` |
+| `npm start` | Run `dist/index.js` |
+| `npm run typecheck` | Type-check only |
 
 ---
 
 ## License
 
-MIT — feel free to fork and adapt for your own classes or tutoring workflow.
+MIT

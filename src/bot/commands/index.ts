@@ -1,5 +1,10 @@
 import type { Bot } from "grammy";
-import { startCommand, menuCommand, helpCommand, cancelCommand } from "./start.js";
+import {
+  startCommand,
+  menuCommand,
+  helpCommand,
+  cancelCommand,
+} from "./start.js";
 import { meetCommand } from "./meet.js";
 import { addStudentCommand } from "./addStudent.js";
 import { statusCommand } from "./status.js";

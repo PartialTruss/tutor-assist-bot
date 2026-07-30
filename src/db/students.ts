@@ -140,6 +140,28 @@ export async function finalizeStudent(studentId: string): Promise<Student> {
   });
 }
 
+export async function deleteStudent(id: string): Promise<void> {
+  await databases.deleteDocument({
+    databaseId: dbIds.databaseId,
+    collectionId: dbIds.studentsCollectionId,
+    documentId: id,
+  });
+}
+
+/** Case-insensitive name contains search. */
+export async function searchStudents(query: string): Promise<Student[]> {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return [];
+
+  const all = await listStudents();
+  return all.filter((s) => s.name.toLowerCase().includes(needle));
+}
+
+/** Students whose work is still open (not finalized). */
+export function remainingStudents(students: Student[]): Student[] {
+  return students.filter((s) => !s.finalized);
+}
+
 /** Create a student document. Chat ID is optional. */
 export async function createStudent(input: {
   name: string;

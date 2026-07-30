@@ -119,6 +119,8 @@ async function main(): Promise<void> {
   console.log("[boot] Starting Telegram bot (long polling)…");
   console.log(`[boot] Sender name: ${env.senderName}`);
   console.log(`[boot] Teacher chat ID: ${env.teacherChatId}`);
+  console.log(`[boot] My chat ID: ${env.myChatId}`);
+  console.log(`[boot] TA chat ID: ${env.taChatId}`);
 
   await bot.start({
     onStart: (info) => {
