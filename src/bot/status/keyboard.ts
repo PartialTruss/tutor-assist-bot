@@ -8,6 +8,8 @@ export const STATUS_CALLBACK = {
   taDone: "st:ta",
   needsTa: "st:wait",
   needsTeacher: "st:gem",
+  approveTa: "st:apta",
+  approveTeacher: "st:apte",
   finalize: "st:fin",
 } as const;
 
@@ -27,9 +29,9 @@ export function statusFromCode(code: string): (typeof CODE_TO_STATUS)[StatusCode
   return null;
 }
 
-/** `st:ok:<studentId>` / `st:fin:<studentId>` */
+/** `st:ok:<id>` · `st:apta:<id>` · `st:apte:<id>` · `st:fin:<id>` */
 export function parseStatusCallback(data: string): {
-  kind: "status" | "finalize";
+  kind: "status" | "approve_ta" | "approve_teacher" | "finalize";
   code?: StatusCode;
   studentId: string;
 } | null {
@@ -40,9 +42,9 @@ export function parseStatusCallback(data: string): {
   const studentId = parts.slice(2).join(":");
   if (!studentId) return null;
 
-  if (action === "fin") {
-    return { kind: "finalize", studentId };
-  }
+  if (action === "fin") return { kind: "finalize", studentId };
+  if (action === "apta") return { kind: "approve_ta", studentId };
+  if (action === "apte") return { kind: "approve_teacher", studentId };
 
   if (action === "ok" || action === "ta" || action === "wait" || action === "gem") {
     return { kind: "status", code: action, studentId };
@@ -59,11 +61,15 @@ export function taskStatusKeyboard(studentId: string): InlineKeyboard {
     .text(TASK_STATUS.needsTa, `${STATUS_CALLBACK.needsTa}:${studentId}`)
     .text(TASK_STATUS.needsTeacher, `${STATUS_CALLBACK.needsTeacher}:${studentId}`)
     .row()
+    .text("Approve TA", `${STATUS_CALLBACK.approveTa}:${studentId}`)
+    .text("Approve Teacher", `${STATUS_CALLBACK.approveTeacher}:${studentId}`)
+    .row()
     .text("Finalize", `${STATUS_CALLBACK.finalize}:${studentId}`);
 }
 
+/** Default is N/A until that role approves their own field. */
 function approvalLabel(approved: boolean): string {
-  return approved ? "✅ Approved" : "⏳ Pending";
+  return approved ? "✅ Approved" : "N/A";
 }
 
 function statusLabel(student: Student): string {
@@ -77,15 +83,10 @@ function statusLabel(student: Student): string {
 export function formatStudentInfo(student: Student): string {
   return [
     "ℹ️ Information:",
-    "\n",
     `👤 Student's Fullname: ${student.name}`,
-    "\n",
     `🎥 Google meet link: ${student.meetLink?.trim() || "—"}`,
-    "\n",
     `📌 Current status: ${statusLabel(student)}`,
-    "\n",
     `🧑‍🏫 TA: ${approvalLabel(student.taApproved)}`,
-    "\n",
     `👨‍🏫 Teacher: ${approvalLabel(student.teacherApproved)}`,
   ].join("\n");
 }

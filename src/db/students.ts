@@ -122,13 +122,22 @@ export async function updateStudent(
 export async function setTaskStatus(
   studentId: string,
   taskStatus: TaskStatus,
-  approvals: { teacherApproved?: boolean; taApproved?: boolean },
 ): Promise<Student> {
   return updateStudent(studentId, {
     taskStatus,
     finalized: false,
-    ...approvals,
   });
+}
+
+/** Only updates the caller's own approval field. */
+export async function setOwnApproval(
+  studentId: string,
+  role: "teacher" | "ta",
+): Promise<Student> {
+  if (role === "teacher") {
+    return updateStudent(studentId, { teacherApproved: true });
+  }
+  return updateStudent(studentId, { taApproved: true });
 }
 
 export async function finalizeStudent(studentId: string): Promise<Student> {

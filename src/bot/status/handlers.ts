@@ -2,6 +2,7 @@ import type { Bot, Context } from "grammy";
 import {
   finalizeStudent,
   findStudentById,
+  setOwnApproval,
   setTaskStatus,
 } from "../../db/students.js";
 import { getStaffRole, isStaff } from "../rbac.js";
@@ -13,7 +14,7 @@ import {
 } from "./keyboard.js";
 
 export function registerStatusHandlers(bot: Bot): void {
-  bot.callbackQuery(/^st:(ok|ta|wait|gem|fin):.+/, onStatusCallback);
+  bot.callbackQuery(/^st:(ok|ta|wait|gem|apta|apte|fin):.+/, onStatusCallback);
 }
 
 async function onStatusCallback(ctx: Context): Promise<void> {
@@ -29,7 +30,7 @@ async function onStatusCallback(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
   if (!isStaff(userId)) {
     await ctx.answerCallbackQuery({
-      text: `No permission. Your ID: ${userId ?? "?"} (must match TEACHER_CHAT_ID or TA_CHAT_ID)`,
+      text: "You do not have permission to change statuses.",
       show_alert: true,
     });
     return;
@@ -43,7 +44,17 @@ async function onStatusCallback(ctx: Context): Promise<void> {
       return;
     }
 
-    await handleStatusChange(ctx, parsed.studentId, parsed.code!, role);
+    if (parsed.kind === "approve_ta") {
+      await handleApprove(ctx, parsed.studentId, "ta", role);
+      return;
+    }
+
+    if (parsed.kind === "approve_teacher") {
+      await handleApprove(ctx, parsed.studentId, "teacher", role);
+      return;
+    }
+
+    await handleStatusChange(ctx, parsed.studentId, parsed.code!);
   } catch (error) {
     console.error("[status] Callback failed:", error);
     const message = error instanceof Error ? error.message : "Update failed";
@@ -51,11 +62,11 @@ async function onStatusCallback(ctx: Context): Promise<void> {
   }
 }
 
+/** Status emojis update Current status only — not TA/Teacher approvals. */
 async function handleStatusChange(
   ctx: Context,
   studentId: string,
   code: "ok" | "ta" | "wait" | "gem",
-  role: "teacher" | "ta",
 ): Promise<void> {
   const nextStatus = statusFromCode(code);
   if (!nextStatus) {
@@ -72,12 +83,7 @@ async function handleStatusChange(
     return;
   }
 
-  const approvals =
-    role === "teacher"
-      ? { teacherApproved: true, taApproved: existing.taApproved }
-      : { teacherApproved: existing.teacherApproved, taApproved: true };
-
-  const student = await setTaskStatus(studentId, nextStatus, approvals);
+  const student = await setTaskStatus(studentId, nextStatus);
 
   await ctx.editMessageText(buildTaskMessage(student), {
     reply_markup: taskStatusKeyboard(student.$id),
@@ -85,6 +91,45 @@ async function handleStatusChange(
   });
 
   await ctx.answerCallbackQuery({ text: `Status → ${nextStatus}` });
+}
+
+/** Each role may only approve their own field. */
+async function handleApprove(
+  ctx: Context,
+  studentId: string,
+  target: "teacher" | "ta",
+  role: "teacher" | "ta",
+): Promise<void> {
+  if (role !== target) {
+    await ctx.answerCallbackQuery({
+      text:
+        target === "ta"
+          ? "Only the TA can approve the TA field."
+          : "Only the Teacher can approve the Teacher field.",
+      show_alert: true,
+    });
+    return;
+  }
+
+  const existing = await findStudentById(studentId);
+  if (!existing) {
+    await ctx.answerCallbackQuery({
+      text: "Student not found in Appwrite.",
+      show_alert: true,
+    });
+    return;
+  }
+
+  const student = await setOwnApproval(studentId, role);
+
+  await ctx.editMessageText(buildTaskMessage(student), {
+    reply_markup: taskStatusKeyboard(student.$id),
+    link_preview_options: { is_disabled: true },
+  });
+
+  await ctx.answerCallbackQuery({
+    text: role === "ta" ? "TA approved ✅" : "Teacher approved ✅",
+  });
 }
 
 async function handleFinalize(ctx: Context, studentId: string): Promise<void> {
@@ -99,7 +144,7 @@ async function handleFinalize(ctx: Context, studentId: string): Promise<void> {
 
   if (!existing.teacherApproved || !existing.taApproved) {
     await ctx.answerCallbackQuery({
-      text: "Finalize requires both Teacher and TA approval first.",
+      text: "Finalize needs both TA and Teacher approval first.",
       show_alert: true,
     });
     return;

@@ -23,6 +23,9 @@ export function defaultTaskStatus(): TaskStatus {
   return TASK_STATUS.needsTa;
 }
 
+/** Optional tri-state approval: unset/false → N/A, true → Approved. */
+export type ApprovalState = boolean | null;
+
 /** Appwrite document fields for the students collection. */
 export interface Student {
   $id: string;
@@ -35,9 +38,15 @@ export interface Student {
   homeworkNote?: string;
   /** Current task workflow status emoji. */
   taskStatus: TaskStatus;
-  /** Set when the Teacher updates status (required for Finalize). */
+  /**
+   * Teacher approval — only the Teacher may set this.
+   * false/null = N/A, true = Approved.
+   */
   teacherApproved: boolean;
-  /** Set when the TA updates status (required for Finalize). */
+  /**
+   * TA approval — only the TA may set this.
+   * false/null = N/A, true = Approved.
+   */
   taApproved: boolean;
   /** Dual-approval finalize completed. */
   finalized: boolean;
