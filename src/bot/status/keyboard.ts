@@ -62,36 +62,45 @@ export function taskStatusKeyboard(studentId: string): InlineKeyboard {
     .text("Finalize", `${STATUS_CALLBACK.finalize}:${studentId}`);
 }
 
+function approvalLabel(approved: boolean): string {
+  return approved ? "✅ Approved" : "⏳ Pending";
+}
+
+function statusLabel(student: Student): string {
+  if (student.finalized) {
+    return `${student.taskStatus} (Finalized)`;
+  }
+  return student.taskStatus;
+}
+
+/** Canonical student card shown everywhere in the bot. */
+export function formatStudentInfo(student: Student): string {
+  return [
+    "ℹ️ Information:",
+    `👤 Student's Fullname: ${student.name}`,
+    `🎥 Google meet link: ${student.meetLink?.trim() || "—"}`,
+    `📌 Current status: ${statusLabel(student)}`,
+    `🧑‍🏫 TA: ${approvalLabel(student.taApproved)}`,
+    `👨‍🏫 Teacher: ${approvalLabel(student.teacherApproved)}`,
+  ].join("\n");
+}
+
 export function buildTaskMessage(student: Student): string {
-  const meet = student.meetLink?.trim() || "—";
-  const statusLine = student.finalized
-    ? `Status: ${student.taskStatus} (Finalized)`
-    : `Status: ${student.taskStatus}`;
-
-  const approvals = [
-    `Teacher: ${student.teacherApproved ? "✅" : "⏳"}`,
-    `TA: ${student.taApproved ? "✅" : "⏳"}`,
-  ].join(" · ");
-
-  const lines = [
-    `📋 Task — ${student.name}`,
-    "",
-    statusLine,
-    approvals,
-    `Meet: ${meet}`,
-  ];
+  const lines = [formatStudentInfo(student)];
 
   if (student.homeworkNote?.trim()) {
-    lines.push(`Note: ${student.homeworkNote.trim()}`);
+    lines.push(`📝 Note: ${student.homeworkNote.trim()}`);
   }
 
   return lines.join("\n");
 }
 
 export function formatStudentStatusLine(student: Student): string {
-  const meet = student.meetLink?.trim() || "—";
-  const mark = student.finalized ? `${student.taskStatus} (done)` : student.taskStatus;
-  return `• ${student.name} - ${meet} - ${mark}`;
+  return formatStudentInfo(student);
+}
+
+export function formatStudentDetails(student: Student): string {
+  return formatStudentInfo(student);
 }
 
 export function formatStatusDashboard(students: Student[]): string {
@@ -102,17 +111,11 @@ export function formatStatusDashboard(students: Student[]): string {
   return [
     `📋 Students (${students.length})`,
     "",
-    ...students.map(formatStudentStatusLine),
-  ].join("\n");
-}
-
-export function formatStudentDetails(student: Student): string {
-  return [
-    `👤 ${student.name}`,
-    `Status: ${student.taskStatus}${student.finalized ? " (finalized)" : ""}`,
-    `Meet: ${student.meetLink?.trim() || "—"}`,
-    `Teacher OK: ${student.teacherApproved ? "yes" : "no"} · TA OK: ${student.taApproved ? "yes" : "no"}`,
-  ].join("\n");
+    ...students.map((s, i) => {
+      const block = formatStudentInfo(s);
+      return i < students.length - 1 ? `${block}\n────────────` : block;
+    }),
+  ].join("\n\n");
 }
 
 export function formatRemainingTasksDigest(students: Student[]): string {
@@ -122,8 +125,11 @@ export function formatRemainingTasksDigest(students: Student[]): string {
   }
 
   return [
-    `Remaining tasks (${open.length}):`,
+    `📌 Remaining tasks (${open.length}):`,
     "",
-    ...open.map(formatStudentStatusLine),
-  ].join("\n");
+    ...open.map((s, i) => {
+      const block = formatStudentInfo(s);
+      return i < open.length - 1 ? `${block}\n────────────` : block;
+    }),
+  ].join("\n\n");
 }
