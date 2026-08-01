@@ -115,6 +115,20 @@ export function formatStudentDetails(student: Student): string {
   return formatStudentInfo(student);
 }
 
+/** Compact one-line summary for list /status (avoids Telegram 4096 limit). */
+export function formatStudentSummaryLine(
+  student: Student,
+  index: number,
+): string {
+  const status = student.finalized
+    ? `${student.taskStatus} (done)`
+    : student.taskStatus;
+  const meet = student.meetLink?.trim() || "—";
+  const ta = student.taApproved ? "TA✅" : "TA·";
+  const teacher = student.teacherApproved ? "T✅" : "T·";
+  return `${index + 1}. ${student.name} · ${status} · ${ta} ${teacher}\n   ${meet}`;
+}
+
 export function formatStatusDashboard(students: Student[]): string {
   if (students.length === 0) {
     return "No students found.";
@@ -123,11 +137,8 @@ export function formatStatusDashboard(students: Student[]): string {
   return [
     `📋 Students (${students.length})`,
     "",
-    ...students.map((s, i) => {
-      const block = formatStudentInfo(s);
-      return i < students.length - 1 ? `${block}\n────────────` : block;
-    }),
-  ].join("\n\n");
+    ...students.map((s, i) => formatStudentSummaryLine(s, i)),
+  ].join("\n");
 }
 
 export function formatRemainingTasksDigest(students: Student[]): string {

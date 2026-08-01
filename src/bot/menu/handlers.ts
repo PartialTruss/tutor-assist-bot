@@ -15,7 +15,7 @@ import {
   getPending,
   setPending,
 } from "../session.js";
-import { escapeMarkdown, isValidMeetUrl } from "../utils.js";
+import { escapeMarkdown, isValidMeetUrl, replyChunked } from "../utils.js";
 import { replyStudentStatusCard } from "../status/card.js";
 import {
   formatStudentDetails,
@@ -77,13 +77,14 @@ async function onListStudents(ctx: Context): Promise<void> {
   await ctx.answerCallbackQuery({ text: "Loading…" });
   try {
     const students = await listStudents();
-    await ctx.reply(formatStatusDashboard(students), {
+    await replyChunked(ctx, formatStatusDashboard(students), {
       link_preview_options: { is_disabled: true },
       reply_markup: mainMenuKeyboard(),
     });
   } catch (error) {
     console.error("[menu] List failed:", error);
-    await ctx.reply("❌ Could not load students.");
+    const detail = error instanceof Error ? error.message : "Unknown error";
+    await ctx.reply(`❌ Could not load students.\n${detail}`);
   }
 }
 
@@ -374,11 +375,15 @@ async function handleSearch(
       return;
     }
 
-    const body = matches.map(formatStudentDetails).join("\n\n");
-    await ctx.reply(`🔍 Results (${matches.length})\n\n${body}`, {
-      link_preview_options: { is_disabled: true },
-      reply_markup: mainMenuKeyboard(),
-    });
+    const body = matches.map(formatStudentDetails).join("\n\n────────────\n\n");
+    await replyChunked(
+      ctx,
+      `🔍 Results (${matches.length})\n\n${body}`,
+      {
+        link_preview_options: { is_disabled: true },
+        reply_markup: mainMenuKeyboard(),
+      },
+    );
   } catch (error) {
     console.error("[menu] Search failed:", error);
     await ctx.reply("❌ Search failed.", { reply_markup: mainMenuKeyboard() });
