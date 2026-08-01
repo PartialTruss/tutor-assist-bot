@@ -4,7 +4,8 @@ export type PendingAction =
   | "awaiting_search_query"
   | "awaiting_update_student"
   | "awaiting_update_meet"
-  | "awaiting_delete_student";
+  | "awaiting_delete_student"
+  | "awaiting_teacher_message";
 
 export interface StudentDraft {
   name?: string;

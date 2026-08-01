@@ -35,7 +35,7 @@ export function startCronJobs(bot: Bot): void {
   cron.schedule(
     teacherDigest,
     async () => {
-      console.log("[cron] Sending teacher digest (OneNote + remaining)…");
+      console.log("[cron] Sending teacher digest (OneNote)…");
       try {
         await sendTeacherDigest(bot.api);
         console.log("[cron] Teacher digest sent.");

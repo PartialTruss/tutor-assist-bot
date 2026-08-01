@@ -1,24 +1,31 @@
 import type { Api, Bot } from "grammy";
 import { env } from "../config/env.js";
-import { listStudents } from "../db/students.js";
-import { formatRemainingTasksDigest } from "../bot/status/keyboard.js";
 
-/** 21:00 — teacher: OneNote + remaining student tasks */
-export function buildTeacherDigest(remainingText: string): string {
+/** 21:00 — teacher: OneNote reminder */
+export function buildTeacherDigest(): string {
   return [
     `Reminder from ${env.senderName}:`,
     "",
-    "1) Please check your tasks on OneNote.",
-    "",
-    "2) Student task status (remaining):",
-    remainingText,
+    "Please check your tasks on OneNote.",
   ].join("\n");
 }
 
 export async function sendTeacherDigest(api: Api): Promise<void> {
-  const students = await listStudents();
-  const remainingText = formatRemainingTasksDigest(students);
-  await api.sendMessage(env.teacherChatId, buildTeacherDigest(remainingText), {
+  await api.sendMessage(env.teacherChatId, buildTeacherDigest(), {
+    link_preview_options: { is_disabled: true },
+  });
+}
+
+/** Send a free-text message to the teacher via the bot */
+export function buildTeacherMessage(body: string): string {
+  return [`Message from ${env.senderName}:`, "", body].join("\n");
+}
+
+export async function sendMessageToTeacher(
+  api: Api,
+  body: string,
+): Promise<void> {
+  await api.sendMessage(env.teacherChatId, buildTeacherMessage(body), {
     link_preview_options: { is_disabled: true },
   });
 }

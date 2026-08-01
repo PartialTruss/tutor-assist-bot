@@ -15,13 +15,14 @@ Built with [grammY](https://grammy.dev/), [Appwrite](https://appwrite.io/), and 
 3. **Search for students** — partial name match  
 4. **Update a student** — change **status** or **Meet link**  
 5. **Delete a student** — with confirmation  
+6. **Message teacher** — send a free-text note to the teacher via the bot  
 
 ### Scheduled reminders
 
 | Time (default) | Who | Message |
 | --- | --- | --- |
 | **14:00** | You (`MY_CHAT_ID`) | Check students’ homework |
-| **21:00** | Teacher (`TEACHER_CHAT_ID`) | OneNote tasks + list of **remaining** (not finalized) student statuses |
+| **21:00** | Teacher (`TEACHER_CHAT_ID`) | Reminder to check OneNote tasks |
 
 Timezone defaults to `Asia/Tehran` (`TZ`).
 
@@ -65,7 +66,7 @@ Open Telegram → message the bot → `/start`.
 | Variable | Required | Description |
 | --- | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | Yes | From BotFather |
-| `TEACHER_CHAT_ID` | Yes | Teacher Telegram user ID (21:00 digest + status RBAC) |
+| `TEACHER_CHAT_ID` | Yes | Teacher Telegram user ID (21:00 OneNote reminder, manual messages, status RBAC) |
 | `MY_CHAT_ID` | Yes | Your Telegram user ID (14:00 homework reminder) |
 | `TA_CHAT_ID` | Yes | TA Telegram user ID (status RBAC) |
 | `SENDER_NAME` | No | Name shown in reminders |

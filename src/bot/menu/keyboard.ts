@@ -6,6 +6,7 @@ export const MENU_CALLBACK = {
   searchStudents: "menu:search_students",
   updateStudent: "menu:update_student",
   deleteStudent: "menu:delete_student",
+  messageTeacher: "menu:message_teacher",
   updateStatus: "upd:status",
   updateMeet: "upd:meet",
   deleteConfirm: "del:yes",
@@ -23,7 +24,9 @@ export function mainMenuKeyboard(): InlineKeyboard {
     .row()
     .text("Update a student", MENU_CALLBACK.updateStudent)
     .row()
-    .text("Delete a student", MENU_CALLBACK.deleteStudent);
+    .text("Delete a student", MENU_CALLBACK.deleteStudent)
+    .row()
+    .text("Message teacher", MENU_CALLBACK.messageTeacher);
 }
 
 export function updateStudentActionsKeyboard(studentId: string): InlineKeyboard {

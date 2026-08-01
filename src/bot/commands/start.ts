@@ -29,6 +29,7 @@ export async function helpCommand(ctx: CommandContext<Context>): Promise<void> {
       "• Search for students",
       "• Update a student (status or Meet link)",
       "• Delete a student",
+      "• Message teacher — send a note via the bot",
       "",
       "*Commands*",
       "`/addstudent <name> <url>`",
@@ -39,7 +40,7 @@ export async function helpCommand(ctx: CommandContext<Context>): Promise<void> {
       "",
       "*Scheduled*",
       "• 14:00 → you: check students’ homework",
-      "• 21:00 → teacher: OneNote + remaining tasks",
+      "• 21:00 → teacher: check OneNote tasks",
     ].join("\n"),
     { parse_mode: "Markdown" },
   );

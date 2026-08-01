@@ -8,6 +8,7 @@ import {
   saveMeetLink,
   searchStudents,
 } from "../../db/students.js";
+import { sendMessageToTeacher } from "../../cron/teacherReminder.js";
 import {
   clearPending,
   getDraft,
@@ -51,6 +52,7 @@ export function registerMenuHandlers(bot: {
   bot.callbackQuery(MENU_CALLBACK.searchStudents, onSearchStudents);
   bot.callbackQuery(MENU_CALLBACK.updateStudent, onUpdateStudent);
   bot.callbackQuery(MENU_CALLBACK.deleteStudent, onDeleteStudent);
+  bot.callbackQuery(MENU_CALLBACK.messageTeacher, onMessageTeacher);
   bot.callbackQuery(MENU_CALLBACK.back, onBackToMenu);
   bot.callbackQuery(MENU_CALLBACK.deleteCancel, onDeleteCancel);
   bot.callbackQuery(/^upd:status:.+/, onUpdateStatusChoice);
@@ -113,6 +115,26 @@ async function onDeleteStudent(ctx: Context): Promise<void> {
   setPending(chatId, "awaiting_delete_student");
   await ctx.reply(
     "🗑 Which student should be deleted?\nSend their exact name (or `/cancel`).",
+  );
+}
+
+async function onMessageTeacher(ctx: Context): Promise<void> {
+  await ctx.answerCallbackQuery();
+
+  if (!isStaff(ctx.from?.id)) {
+    await ctx.reply(
+      `Only staff can message the teacher.\nYour ID: ${ctx.from?.id ?? "?"}`,
+    );
+    return;
+  }
+
+  const chatId = ctx.chat?.id;
+  if (chatId === undefined) return;
+
+  setPending(chatId, "awaiting_teacher_message");
+  await ctx.reply(
+    "📨 Send the message for the teacher (or `/cancel`).\nIt will be delivered through the bot.",
+    { parse_mode: "Markdown" },
   );
 }
 
@@ -227,6 +249,37 @@ async function onPendingText(ctx: Context): Promise<void> {
     case "awaiting_delete_student":
       await handleDeletePick(ctx, chatId, text);
       break;
+    case "awaiting_teacher_message":
+      await handleTeacherMessage(ctx, chatId, text);
+      break;
+  }
+}
+
+async function handleTeacherMessage(
+  ctx: Context,
+  chatId: number,
+  body: string,
+): Promise<void> {
+  if (!isStaff(ctx.from?.id)) {
+    clearPending(chatId);
+    await ctx.reply("Only staff can message the teacher.", {
+      reply_markup: mainMenuKeyboard(),
+    });
+    return;
+  }
+
+  clearPending(chatId);
+
+  try {
+    await sendMessageToTeacher(ctx.api, body);
+    await ctx.reply("✅ Sent to the teacher.", {
+      reply_markup: mainMenuKeyboard(),
+    });
+  } catch (error) {
+    console.error("[menu] Message teacher failed:", error);
+    await ctx.reply("❌ Could not send the message.", {
+      reply_markup: mainMenuKeyboard(),
+    });
   }
 }
 
