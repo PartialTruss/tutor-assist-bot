@@ -4,10 +4,12 @@ import { isCollected } from "../state/homework.js";
 import { calendarDate } from "../time.js";
 import { registerHomeworkActions } from "./homework.js";
 import { authorizeOwner } from "./middleware/authorize.js";
+import { registerTaskFormatting, taskKeyboard } from "./tasks.js";
 
 export const ownerCommands = [
   { command: "start", description: "Show the reminder schedule" },
   { command: "status", description: "Today's homework collection status" },
+  { command: "tasks", description: "Format a task list into the checklist" },
 ];
 
 function scheduleOverview(): string {
@@ -30,6 +32,7 @@ function scheduleOverview(): string {
     "• Saturday–Thursday 22:00 — Ask students to confirm classes",
     "",
     "/status — today's homework state",
+    "/tasks — paste a task list and get the assignment checklist",
   ].join("\n");
 }
 
@@ -39,7 +42,7 @@ export function createBot(): Bot {
   bot.use(authorizeOwner);
 
   bot.command("start", async (ctx) => {
-    await ctx.reply(scheduleOverview());
+    await ctx.reply(scheduleOverview(), { reply_markup: taskKeyboard });
   });
 
   bot.command("status", async (ctx) => {
@@ -53,6 +56,7 @@ export function createBot(): Bot {
   });
 
   registerHomeworkActions(bot);
+  registerTaskFormatting(bot);
 
   bot.catch((err) => {
     console.error("[bot] Unhandled error:", err.error);
