@@ -2,14 +2,19 @@ import { Bot } from "grammy";
 import { env } from "../config/env.js";
 import { isCollected } from "../state/homework.js";
 import { calendarDate } from "../time.js";
+import { ownerKeyboard } from "./keyboard.js";
 import { registerHomeworkActions } from "./homework.js";
 import { authorizeOwner } from "./middleware/authorize.js";
-import { registerTaskFormatting, taskKeyboard } from "./tasks.js";
+import { consumePending, clearPending } from "./pending.js";
+import { registerReminders, saveReminderFromText } from "./reminders.js";
+import { registerTaskFormatting, replyWithChecklist } from "./tasks.js";
 
 export const ownerCommands = [
   { command: "start", description: "Show the reminder schedule" },
   { command: "status", description: "Today's homework collection status" },
   { command: "tasks", description: "Format a task list into the checklist" },
+  { command: "remind", description: "Set a reminder for a date and time" },
+  { command: "reminders", description: "Show or cancel your reminders" },
 ];
 
 function scheduleOverview(): string {
@@ -33,6 +38,8 @@ function scheduleOverview(): string {
     "",
     "/status — today's homework state",
     "/tasks — paste a task list and get the assignment checklist",
+    "/remind — set a date and time, then get a message when it arrives",
+    "/reminders — show or cancel your reminders",
   ].join("\n");
 }
 
@@ -42,7 +49,7 @@ export function createBot(): Bot {
   bot.use(authorizeOwner);
 
   bot.command("start", async (ctx) => {
-    await ctx.reply(scheduleOverview(), { reply_markup: taskKeyboard });
+    await ctx.reply(scheduleOverview(), { reply_markup: ownerKeyboard });
   });
 
   bot.command("status", async (ctx) => {
@@ -57,6 +64,24 @@ export function createBot(): Bot {
 
   registerHomeworkActions(bot);
   registerTaskFormatting(bot);
+  registerReminders(bot);
+
+  bot.command("cancel", async (ctx) => {
+    if (!ctx.chat || !clearPending(ctx.chat.id)) return;
+    await ctx.reply("Cancelled.");
+  });
+
+  bot.on("message:text", async (ctx) => {
+    if (!ctx.chat) return;
+    const kind = consumePending(ctx.chat.id);
+    if (kind === "tasks") {
+      await replyWithChecklist(ctx, ctx.message.text);
+      return;
+    }
+    if (kind === "reminder") {
+      await saveReminderFromText(ctx, ctx.message.text);
+    }
+  });
 
   bot.catch((err) => {
     console.error("[bot] Unhandled error:", err.error);

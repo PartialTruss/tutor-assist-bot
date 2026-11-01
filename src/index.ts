@@ -1,8 +1,10 @@
 import express from "express";
 import { createBot, ownerCommands } from "./bot/bot.js";
 import { env } from "./config/env.js";
+import { startReminderLoop } from "./bot/reminders.js";
 import { startCronJobs } from "./cron/index.js";
 import { loadHomeworkState } from "./state/homework.js";
+import { loadReminders } from "./state/reminders.js";
 
 function formatFetchError(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
@@ -56,6 +58,7 @@ async function main(): Promise<void> {
   });
 
   await loadHomeworkState();
+  await loadReminders();
 
   const bot = createBot();
 
@@ -75,6 +78,7 @@ async function main(): Promise<void> {
   }
 
   const tasks = startCronJobs(bot);
+  tasks.push(startReminderLoop(bot.api));
   console.log(`[boot] Owner chat: ${env.myChatId}`);
 
   let stopping = false;
